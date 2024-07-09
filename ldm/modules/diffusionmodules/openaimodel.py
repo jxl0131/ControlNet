@@ -83,7 +83,7 @@ class TimestepEmbedSequential(nn.Sequential, TimestepBlock):
             elif isinstance(layer, SpatialTransformer):
                 x = layer(x, context)
             else:
-                x = layer(x)
+                x = layer(x)# layer是卷积层，把bz,3,512,512变成bz,64,512,512
         return x
 
 

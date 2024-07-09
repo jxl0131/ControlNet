@@ -1,4 +1,4 @@
-from tutorial_dataset import MyDataset
+from relight_datasetv1 import MyDataset
 
 dataset = MyDataset()
 print(len(dataset))

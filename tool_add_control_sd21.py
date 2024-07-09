@@ -24,7 +24,7 @@ def get_node_name(name, parent_name):
     return True, name[len(parent_name):]
 
 
-model = create_model(config_path='./models/cldm_v21.yaml')
+model = create_model(config_path='./models/relight_v21.yaml')
 
 pretrained_weights = torch.load(input_path)
 if 'state_dict' in pretrained_weights:
@@ -42,7 +42,7 @@ for k in scratch_dict.keys():
     if copy_k in pretrained_weights:
         target_dict[k] = pretrained_weights[copy_k].clone()
     else:
-        target_dict[k] = scratch_dict[k].clone()
+        target_dict[k] = scratch_dict[k].clone()#好像没做什么零卷积的初始化
         print(f'These weights are newly added: {k}')
 
 model.load_state_dict(target_dict, strict=True)
