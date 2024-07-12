@@ -4,7 +4,8 @@ training/
 lightning_logs/
 image_log/
 
-./source.png
+source.png
+
 
 *.pth
 *.pt
