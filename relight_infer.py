@@ -1,8 +1,8 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 from share import *
 import config
-
+# safetensors               0.2.7
 import cv2
 import einops
 import gradio as gr
@@ -16,16 +16,13 @@ from annotator.util import resize_image, HWC3
 from cldm.model import create_model, load_state_dict
 from cldm.ddim_hacked import DDIMSampler
 
-
-# apply_uniformer = UniformerDetector()
-
 model = create_model('./models/relight_v21.yaml').cpu()
-model.load_state_dict(load_state_dict('./lightning_logs/version_27/checkpoints/epoch=13-step=12249.ckpt', location='cuda'))
+model.load_state_dict(load_state_dict('./lightning_logs/version_27/checkpoints/epoch=106-step=93624.ckpt', location='cuda'))
 model = model.cuda()
 ddim_sampler = DDIMSampler(model)
 
 
-def process(input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, detect_resolution, ddim_steps, guess_mode, strength, scale, seed, eta):
+def process(input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution,detect_resolution,  ddim_steps, guess_mode, strength, scale, seed, eta):
     with torch.no_grad():
         # input_image = HWC3(input_image)
         # detected_map = apply_uniformer(resize_image(input_image, detect_resolution))
@@ -45,14 +42,14 @@ def process(input_image, prompt, a_prompt, n_prompt, num_samples, image_resoluti
 
         if config.save_memory:
             model.low_vram_shift(is_diffusing=False)
-
+        # 如果是guess mode，需要将un_cond中的控制图设置为None，这样才能让模型从控制图中猜测语义
         cond = {"c_concat": [control], "c_crossattn": [model.get_learned_conditioning([prompt + ', ' + a_prompt] * num_samples)]}
         un_cond = {"c_concat": None if guess_mode else [control], "c_crossattn": [model.get_learned_conditioning([n_prompt] * num_samples)]}#guess_mode表示没有提示词，这时候必须是cond有控制图且un_cond没有控制图
         shape = (4, H // 8, W // 8)
 
         if config.save_memory:
             model.low_vram_shift(is_diffusing=True)
-
+        # 如果是guess mode，需要将control_scales设置为递减的，这样才能避免控制图中的语义太强
         model.control_scales = [strength * (0.825 ** float(12 - i)) for i in range(13)] if guess_mode else ([strength] * 13)  # Magic number. IDK why. Perhaps because 0.825**12<0.01 but 0.826**12>0.01
         samples, intermediates = ddim_sampler.sample(ddim_steps, num_samples,
                                                      shape, cond, verbose=False, eta=eta,
@@ -68,41 +65,19 @@ def process(input_image, prompt, a_prompt, n_prompt, num_samples, image_resoluti
         results = [x_samples[i] for i in range(num_samples)]
     return [detected_map] + results
 
-from PIL import Image
+if __name__ == '__main__':
 
-test_image = Image.open('source_rgba.png')
-test_image = np.array(test_image)
-guess_mode =True
-strength = 2.0
-results = process(test_image, 'portrait with harmonious and natural lighting', 'best quality, extremely detailed', 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality', 1, 512, 512, 20, guess_mode, strength, 9.0, -1, 0.0)
+    from PIL import Image
 
-Image.fromarray(results[1]).save('test_result_cfgw.png')
-# block = gr.Blocks().queue()
-# with block:
-#     with gr.Row():
-#         gr.Markdown("## Control Stable Diffusion with Segmentation Maps")
-#     with gr.Row():
-#         with gr.Column():
-#             input_image = gr.Image(source='upload', type="numpy")
-#             prompt = gr.Textbox(label="Prompt")
-#             run_button = gr.Button(label="Run")
-#             with gr.Accordion("Advanced options", open=False):
-#                 num_samples = gr.Slider(label="Images", minimum=1, maximum=12, value=1, step=1)
-#                 image_resolution = gr.Slider(label="Image Resolution", minimum=256, maximum=768, value=512, step=64)
-#                 strength = gr.Slider(label="Control Strength", minimum=0.0, maximum=2.0, value=1.0, step=0.01)
-#                 guess_mode = gr.Checkbox(label='Guess Mode', value=False)
-#                 detect_resolution = gr.Slider(label="Segmentation Resolution", minimum=128, maximum=1024, value=512, step=1)
-#                 ddim_steps = gr.Slider(label="Steps", minimum=1, maximum=100, value=20, step=1)
-#                 scale = gr.Slider(label="Guidance Scale", minimum=0.1, maximum=30.0, value=9.0, step=0.1)
-#                 seed = gr.Slider(label="Seed", minimum=-1, maximum=2147483647, step=1,value=-1, randomize=True)
-#                 eta = gr.Number(label="eta (DDIM)", value=0.0)
-#                 a_prompt = gr.Textbox(label="Added Prompt", value='best quality, extremely detailed')
-#                 n_prompt = gr.Textbox(label="Negative Prompt",
-#                                       value='longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality')
-#         with gr.Column():
-#             result_gallery = gr.Gallery(label='Output', show_label=False, elem_id="gallery").style(grid=2, height='auto')
-#     ips = [input_image, prompt, a_prompt, n_prompt, num_samples, image_resolution, detect_resolution, ddim_steps, guess_mode, strength, scale, seed, eta]
-#     run_button.click(fn=process, inputs=ips, outputs=[result_gallery])
+    test_image = Image.open('source_rgba.png')
+    test_image = np.array(test_image)
+    guess_mode =True #无提示词，有控制图，模型从控制图中猜测语义
+    strength = 2.0 #控制图引导的强度
+    scale = 9.0 #无提示词引导的强度
+    results = process(test_image, 'portrait with harmonious and natural lighting', 'best quality, extremely detailed', 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality', 1, 512, 512, 20, guess_mode, strength, scale, -1, 0.0)
+    Image.fromarray(results[1]).save('epoch=106-step=93624-test_result_cfgw.png')
 
+    guess_mode =False #有提示词，有控制图，模型从控制图中猜测语义
+    results = process(test_image, 'portrait with harmonious and natural lighting', 'best quality, extremely detailed', 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality', 1, 512, 512, 20, guess_mode, strength, scale, -1, 0.0)
+    Image.fromarray(results[1]).save('epoch=106-step=93624-test_result.png')
 
-# block.launch(server_name='0.0.0.0')

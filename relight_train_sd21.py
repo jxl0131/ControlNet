@@ -1,6 +1,6 @@
 import os
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "6"
 from share import *
 
 import pytorch_lightning as pl
@@ -11,7 +11,7 @@ from cldm.model import create_model, load_state_dict
 
 
 # Configs
-resume_path = '/data/jixinlong/jixinlong/datasets/train/controlNet/control_sd21_ini_relight.ckpt'
+resume_path = '/data/jixinlong/jixinlong/ControlNet/lightning_logs/version_27/checkpoints/epoch=122-step=107624.ckpt'
 batch_size = 4
 logger_freq = 300
 learning_rate = 1e-5
